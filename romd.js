@@ -11,7 +11,7 @@ function displayWelcomeMessage() {
     console.log("==========================================================");
     console.log("                      A I   D R O P                   ");
     console.log("==========================================================");
-    console.log("Join:    https://t.me/ai_drop100");
+    console.log("Join  :  https://t.me/ai_drop100");
     console.log("Github:  https://github.com/zeevana");
     console.log("==========================================================");
     console.log();
