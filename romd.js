@@ -20,8 +20,7 @@ function displayWelcomeMessage() {
 function calculateGasFee(gasUsed, gasPriceGwei) {
     const gasPriceWei = gasPriceGwei * 1e9;
     const gasFeeWei = gasUsed * gasPriceWei;
-    const gasFeeEth = gasFeeWei / 1e18;
-    return gasFeeEth;
+    return gasFeeWei / 1e18;
 }
 
 async function getEthPrice() {
@@ -45,10 +44,9 @@ async function getTransactionDataFromTaiko(address) {
     const chalk = await import('chalk');
 
     try {
-        const now = moment();
-        const startOfDay = now.clone().startOf('day');
-        const startOfDayWib = startOfDay.clone().add('hours');
-        const startOfDayTimestamp = startOfDayWib.unix();
+        const now = moment.utc();
+        const startOfTodayTimestamp = now.clone().startOf('day').unix();
+        const startOfPeriodTimestamp = moment.utc("2024-09-16").unix();
 
         const url = `https://api.taikoscan.io/api?module=account&action=txlist&address=${address}`;
         const response = await axios.get(url);
@@ -59,17 +57,27 @@ async function getTransactionDataFromTaiko(address) {
         }
 
         let totalGasFee = 0;
-        let txCount = 0;
+        let txCountToday = 0;
+        let totalGasFeeFromSep16 = 0;
+        let txCountFromSep16 = 0;
 
         response.data.result.forEach(tx => {
             const txTimestamp = parseInt(tx.timeStamp);
 
-            if (tx.gasUsed && tx.gasPrice && txTimestamp >= startOfDayTimestamp) {
+            if (tx.gasUsed && tx.gasPrice) {
                 const gasUsed = parseInt(tx.gasUsed);
                 const gasPriceGwei = parseInt(tx.gasPrice);
                 const gasFee = calculateGasFee(gasUsed, gasPriceGwei);
-                totalGasFee += gasFee;
-                txCount += 1;
+
+                if (txTimestamp >= startOfTodayTimestamp) {
+                    totalGasFee += gasFee;
+                    txCountToday += 1;
+                }
+
+                if (txTimestamp >= startOfPeriodTimestamp) {
+                    totalGasFeeFromSep16 += gasFee;
+                    txCountFromSep16 += 1;
+                }
             }
         });
 
@@ -80,17 +88,25 @@ async function getTransactionDataFromTaiko(address) {
             return;
         }
 
-        const adjustedGasFeeInEth = totalGasFee / 1e9;
-        const totalGasFeeInUsd = adjustedGasFeeInEth * ethToUsdRate;
+        const adjustedGasFeeInEthToday = totalGasFee / 1e9;
+        const totalGasFeeInUsdToday = adjustedGasFeeInEthToday * ethToUsdRate;
+
+        const adjustedGasFeeInEthFromSep16 = totalGasFeeFromSep16 / 1e9;
+        const totalGasFeeInUsdFromSep16 = adjustedGasFeeInEthFromSep16 * ethToUsdRate;
 
         console.log();
         console.log(chalk.default.magenta('=========================================================='));
         console.log(chalk.default.green('                 Hasil Perhitungan Gas Fee            '));
         console.log(chalk.default.magenta('=========================================================='));
-        console.log(chalk.default.white(`Total Gas Fee ETH  : ${adjustedGasFeeInEth.toFixed(10)} ETH`));
-        console.log(chalk.default.white(`Total Gas Fee USD  : $${totalGasFeeInUsd.toFixed(2)}`));
+        console.log(chalk.default.white(`Gas Fee ETH (Hari Ini)  : ${adjustedGasFeeInEthToday.toFixed(10)} ETH`));
+        console.log(chalk.default.white(`Gas Fee USD (Hari Ini)  : $${totalGasFeeInUsdToday.toFixed(2)}`));
         console.log('');
-        console.log(chalk.default.white(`Jumlah tx hari ini : ${txCount} transaksi`));
+        console.log(chalk.default.white(`Jumlah tx Hari Ini : ${txCountToday} transaksi`));
+        console.log('');
+        console.log(chalk.default.white(`Total Gas Fee ETH TAIKO S2   : ${adjustedGasFeeInEthFromSep16.toFixed(10)} ETH`));
+        console.log(chalk.default.white(`Total Gas Fee USD TAIKO S2   : $${totalGasFeeInUsdFromSep16.toFixed(2)}`));
+        console.log('');
+        console.log(chalk.default.white(`Jumlah tx TAIKO S2  : ${txCountFromSep16} transaksi`));
         console.log(chalk.default.magenta('=========================================================='));
         console.log();
 
